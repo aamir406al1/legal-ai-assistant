@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal AI Assistant for SMEs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .document-card {
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+        .document-card.selected {
+            border: 2px solid #007bff;
+        }
+        .sources-section {
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+        .source-item {
+            border-left: 3px solid #007bff;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+        #response-container {
+            white-space: pre-line;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">Legal AI Assistant for SMEs</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Document Management -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Document Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="upload-form" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="document" class="form-label">Upload PDF document</label>
+                                <input class="form-control" type="file" id="document" accept=".pdf" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="title" class="form-label">Document Title (optional)</label>
+                                <input type="text" class="form-control" id="title">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Upload</button>
+                        </form>
+                        <hr>
+                        <h6>Available Documents</h6>
+                        <div id="document-list" class="mt-3">
+                            <div class="text-muted">No documents uploaded yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query Interface -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Legal Assistant</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="query-form">
+                            <div class="mb-3">
+                                <label for="query" class="form-label">Ask a question about your legal documents</label>
+                                <textarea class="form-control" id="query" rows="3" required placeholder="What are my obligations regarding..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success">Submit Question</button>
+                            <div class="loader mt-3" id="query-loader"></div>
+                        </form>
+
+                        <div id="response-section" class="mt-4" style="display: none;">
+                            <h6>Response:</h6>
+                            <div id="response-container" class="p-3 bg-light rounded"></div>
+                            
+                            <div class="sources-section">
+                                <h6>Sources:</h6>
+                                <div id="sources-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Selected documents for filtering
+        let selectedDocuments = [];
+        
+        // Load documents on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDocuments();
+            
+            // Set up form submission listeners
+            document.getElementById('upload-form').addEventListener('submit', handleDocumentUpload);
+            document.getElementById('query-form').addEventListener('submit', handleQuery);
+        });
+        
+        // Load available documents
+        async function loadDocuments() {
+            try {
+                const response = await fetch('/documents');
+                const documents = await response.json();
+                
+                const documentList = document.getElementById('document-list');
+                
+                if (documents.length === 0) {
+                    documentList.innerHTML = '<div class="text-muted">No documents uploaded yet</div>';
+                    return;
+                }
+                
+                documentList.innerHTML = '';
+                documents.forEach(doc => {
+                    const docCard = document.createElement('div');
+                    docCard.className = 'card document-card';
+                    docCard.dataset.docId = doc.doc_id;
+                    docCard.innerHTML = `
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-0">${doc.title || doc.filename}</h6>
+                            <small class="text-muted">Chunks: ${doc.chunks} | ${new Date(doc.upload_date).toLocaleDateString()}</small>
+                            <button class="btn btn-sm btn-danger float-end delete-doc" data-doc-id="${doc.doc_id}">Delete</button>
+                        </div>
+                    `;
+                    
+                    // Add click handler for selection
+                    docCard.addEventListener('click', (e) => {
+                        // Ignore if the delete button was clicked
+                        if (e.target.classList.contains('delete-doc')) return;
+                        
+                        toggleDocumentSelection(doc.doc_id, docCard);
+                    });
+                    
+                    documentList.appendChild(docCard);
+                });
+                
+                // Add delete handlers
+                document.querySelectorAll('.delete-doc').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const docId = e.target.dataset.docId;
+                        await deleteDocument(docId);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading documents:', error);
+                alert('Failed to load documents. Please check the console for details.');
+            }
+        }
+        
+        // Toggle document selection for filtering
+        function toggleDocumentSelection(docId, docCard) {
+            const index = selectedDocuments.indexOf(docId);
+            
+            if (index === -1) {
+                selectedDocuments.push(docId);
+                docCard.classList.add('selected');
+            } else {
+                selectedDocuments.splice(index, 1);
+                docCard.classList.remove('selected');
+            }
+            
+            console.log('Selected documents:', selectedDocuments);
+        }
+        
+        // Handle document upload
+        async function handleDocumentUpload(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('document');
+            const titleInput = document.getElementById('title');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a PDF file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            if (titleInput.value) {
+                formData.append('title', titleInput.value);
+            }
+            
+            try {
+                const response = await fetch('/documents/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Upload failed');
+                }
+                
+                const result = await response.json();
+                alert(`Document "${result.title}" uploaded successfully`);
+                
+                // Reset form
+                fileInput.value = '';
+                titleInput.value = '';
+                
+                // Reload document list
+                loadDocuments();
+            } catch (error) {
+                console.error('Error uploading document:', error);
+                alert('Failed to upload document: ' + error.message);
+            }
+        }
+        
+        // Delete a document
+        async function deleteDocument(docId) {
+            if (!confirm('Are you sure you want to delete this document?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/documents/${docId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Delete failed');
+                }
+                
+                // Remove from selected documents if present
+                const index = selectedDocuments.indexOf(docId);
+                if (index !== -1) {
+                    selectedDocuments.splice(index, 1);
+                }
+                
+                // Reload document list
+                loadDocuments();
+            } catch (error) {
+                console.error('Error deleting document:', error);
+                alert('Failed to delete document: ' + error.message);
+            }
+        }
+        
+        // Handle query submission
+        async function handleQuery(e) {
+            e.preventDefault();
+            
+            const queryText = document.getElementById('query').value.trim();
+            if (!queryText) {
+                alert('Please enter a question');
+                return;
+            }
+            
+            // Show loader
+            const loader = document.getElementById('query-loader');
+            loader.style.display = 'block';
+            
+            try {
+                const requestBody = {
+                    query: queryText
+                };
+                
+                // Add document filter if documents are selected
+                if (selectedDocuments.length > 0) {
+                    requestBody.doc_filter = selectedDocuments;
+                }
+                
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Query failed');
+                }
+                
+                const result = await response.json();
+                displayResponse(result);
+            } catch (error) {
+                console.error('Error querying documents:', error);
+                alert('Failed to process query: ' + error.message);
+            } finally {
+                // Hide loader
+                loader.style.display = 'none';
+            }
+        }
+        
+        // Display response and sources
+        function displayResponse(data) {
+            const responseSection = document.getElementById('response-section');
+            const responseContainer = document.getElementById('response-container');
+            const sourcesContainer = document.getElementById('sources-container');
+            
+            responseSection.style.display = 'block';
+            responseContainer.textContent = data.response;
+            
+            // Display sources
+            sourcesContainer.innerHTML = '';
+            if (data.sources && data.sources.length > 0) {
+                data.sources.forEach(source => {
+                    const sourceDiv = document.createElement('div');
+                    sourceDiv.className = 'source-item';
+                    sourceDiv.innerHTML = `
+                        <strong>${source.title}</strong> (Page ${source.page})<br>
+                        <small>${source.text}</small>
+                    `;
+                    sourcesContainer.appendChild(sourceDiv);
+                });
+            } else {
+                sourcesContainer.innerHTML = '<div class="text-muted">No specific sources cited</div>';
+            }
+        }
+    </script>
+</body>
+</html>
