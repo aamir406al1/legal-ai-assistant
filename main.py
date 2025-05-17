@@ -52,8 +52,8 @@ def serve_root(request: Request):
     return FileResponse("frontend/login.html")
 
 @app.post("/login")
-async def login_post(request: Request, credentials: HTTPBasicCredentials = Depends(security)):
-    if credentials.username == VALID_USERNAME and credentials.password == VALID_PASSWORD:
+async def login_post(username: str = Form(...), password: str = Form(...)):
+    if username == VALID_USERNAME and password == VALID_PASSWORD:
         response = RedirectResponse(url="/index.html", status_code=302)
         response.set_cookie(key="auth", value="true", httponly=True)
         return response
