@@ -8,12 +8,14 @@ import pandas as pd
 
 class DocumentProcessor:
     def __init__(self, documents_dir="documents", embeddings_model=None):
-        self.documents_dir = "/data/documents"
-        self.metadata_file = "/data/document_metadata.csv"
-        
-        # Ensure /data and /data/documents exist
+        self.documents_dir = "documents"
+        self.metadata_file = "document_metadata.csv"
+
+
+        # Ensure folders exist for storing files and metadata
         os.makedirs(self.documents_dir, exist_ok=True)
-        os.makedirs(os.path.dirname(self.metadata_file), exist_ok=True)
+        os.makedirs(os.path.dirname(self.metadata_file) or ".", exist_ok=True)
+
         
         # Initialize embeddings model
         self.embeddings_model = embeddings_model or OpenAIEmbeddings()
