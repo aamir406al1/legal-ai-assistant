@@ -7,3 +7,7 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         value: ${OPENAI_API_KEY}
+    disk:
+      name: temp-disk
+      mountPath: /data
+      sizeGB: 1

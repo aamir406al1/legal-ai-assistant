@@ -8,8 +8,8 @@ import pandas as pd
 
 class DocumentProcessor:
     def __init__(self, documents_dir="documents", embeddings_model=None):
-        self.documents_dir = documents_dir
-        self.metadata_file = "document_metadata.csv"
+        self.documents_dir = "/data/documents"
+        self.metadata_file = "/data/document_metadata.csv"
         os.makedirs(documents_dir, exist_ok=True)
         
         # Initialize embeddings model
