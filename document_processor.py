@@ -10,7 +10,10 @@ class DocumentProcessor:
     def __init__(self, documents_dir="documents", embeddings_model=None):
         self.documents_dir = "/data/documents"
         self.metadata_file = "/data/document_metadata.csv"
-        os.makedirs(documents_dir, exist_ok=True)
+        
+        # Ensure /data and /data/documents exist
+        os.makedirs(self.documents_dir, exist_ok=True)
+        os.makedirs(os.path.dirname(self.metadata_file), exist_ok=True)
         
         # Initialize embeddings model
         self.embeddings_model = embeddings_model or OpenAIEmbeddings()
