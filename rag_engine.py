@@ -46,7 +46,8 @@ class RAGEngine:
                     "title": chunk["chunk"].metadata.get("title", "Unknown"),
                     "doc_id": chunk["chunk"].metadata.get("doc_id", "Unknown"),
                     "page": chunk["chunk"].metadata.get("page", "Unknown"),
-                    "text": chunk["chunk"].page_content[:200] + "..." if len(chunk["chunk"].page_content) > 200 else chunk["chunk"].page_content
+                    "text": chunk["chunk"].page_content[:200] + "..." if len(chunk["chunk"].page_content) > 200 else chunk["chunk"].page_content,
+                    "similarity_score": round(1 - chunk["distance"], 4) if "distance" in chunk else 0.0
                 }
                 for chunk in relevant_chunks
             ]

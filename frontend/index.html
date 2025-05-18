@@ -22,6 +22,14 @@
             padding-left: 10px;
             margin-bottom: 10px;
         }
+        .similarity-score {
+            float: right;
+            background-color: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #495057;
+        }
         #response-container {
             white-space: pre-line;
         }
@@ -325,11 +333,17 @@
             // Display sources
             sourcesContainer.innerHTML = '';
             if (data.sources && data.sources.length > 0) {
-                data.sources.forEach(source => {
+                // Sort sources by similarity score in descending order
+                const sortedSources = [...data.sources].sort((a, b) => 
+                    (b.similarity_score || 0) - (a.similarity_score || 0)
+                );
+                
+                sortedSources.forEach(source => {
                     const sourceDiv = document.createElement('div');
                     sourceDiv.className = 'source-item';
                     sourceDiv.innerHTML = `
-                        <strong>${source.title}</strong> (Page ${source.page})<br>
+                        <strong>${source.title}</strong> (Page ${source.page})
+                        <span class="similarity-score">Similarity: ${(source.similarity_score * 100).toFixed(2)}%</span><br>
                         <small>${source.text}</small>
                     `;
                     sourcesContainer.appendChild(sourceDiv);
